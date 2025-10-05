@@ -2,8 +2,8 @@ name: Docker Build and SSH Deploy to Azure VM 🚀
 
 on:
   push:
-    branches:
-      - main # Trigger the workflow on push to the main branch
+    tags:
+      - '*'
 
 jobs:
   build_and_deploy:
