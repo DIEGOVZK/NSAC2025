@@ -17,7 +17,8 @@
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"dev:setup": "mkdir -p database && mkdir -p static/api/tfjs && mkdir -p static/api/fits && cp -r ../models/* static/api/tfjs && cp -r ../fits/* static/api/fits"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",

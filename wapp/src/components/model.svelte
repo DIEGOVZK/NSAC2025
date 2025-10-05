@@ -1,61 +1,82 @@
 <!-- This is a parent component to store and handle TF.js general operations -->
 
 <script lang="ts">
-    import * as tf from "@tensorflow/tfjs";
-
-    let model: tf.LayersModel | tf.GraphModel | null = null;
-    let metadata: { type: string; name: string; [key: string]: any } | null =
-        null;
+    import { modelStore } from "$lib/stores/modelStore";
+    import { createEventDispatcher } from "svelte";
 
     export let selected_model: string;
-
-    import { load_model, load_model_metadata } from "$lib/api/model";
-    import GraphModel from "./model.graph.svelte";
-    // import LayersModel from "./model.layers.svelte";
-
     export let model_options_list: string[] = [];
 
+    import GraphModel from "./model.graph.svelte";
+    import * as tf from "@tensorflow/tfjs";
+    // import LayersModel from "./model.layers.svelte";
 
-    async function load() {
-        // Load metadata first to determine model type
-        metadata = await load_model_metadata(selected_model);
-        console.log("Model metadata:", metadata);
+    const dispatch = createEventDispatcher();
 
-        // Load the model
-        model = await load_model(selected_model);
-        console.log("Model loaded:", model);
+    function load() {
+        modelStore.loadModel(selected_model);
+    }
+
+    function predict() {
+        dispatch("predict");
     }
 </script>
 
-<select
-    bind:value={selected_model}
-    class="mt-4 px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 transition-colors duration-150 font-medium border-0 focus:ring-2 focus:ring-indigo-500"
->
-    {#each model_options_list as option}
-        <option value={option}>{option}</option>
-    {/each}
-</select>
-<button
-    on:click={async () => {
-        await load();
-    }}
-    class="mt-4 px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 transition-colors duration-150 font-medium border-0 focus:ring-2 focus:ring-indigo-500"
->
-    Load Model
-</button>
+<div class="flex flex-col h-screen gap-4 p-4">
+    <!-- Button and Dropdown in horizontal layout -->
+    <div class="flex-none flex gap-4">
+        <select
+            bind:value={selected_model}
+            class="flex-1 px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 transition-colors duration-150 font-medium border-0 focus:ring-2 focus:ring-indigo-500"
+        >
+            {#each model_options_list as option (option)}
+                <option value={option}>{option}</option>
+            {/each}
+        </select>
 
-{#if model && metadata}
-    <!-- Conditionally render based on model type -->
-    {#if metadata.format === "graph-model"}
-        <GraphModel model={model as tf.GraphModel} />
-    {:else if metadata.format === "layers-model"}
-        <!-- <LayersModel model={model as tf.LayersModel}/> -->
-        <div class="p-4 bg-yellow-100 text-yellow-800 rounded">
-            <p>LayersModel component not yet implemented</p>
-        </div>
-    {:else}
-        <div class="p-4 bg-orange-100 text-orange-800 rounded">
-            <p>Unknown model type: {metadata.format}</p>
-        </div>
-    {/if}
-{/if}
+        <button
+            on:click={load}
+            disabled={$modelStore.loading}
+            class="flex-1 px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 transition-colors duration-150 font-medium border-0 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-400"
+        >
+            {$modelStore.loading ? "Loading..." : "Load Model"}
+        </button>
+    </div>
+
+    <button
+        on:click={predict}
+        disabled={!$modelStore.model || $modelStore.loading}
+        class="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-150 font-medium border-0 focus:ring-2 focus:ring-green-500 disabled:bg-gray-400"
+    >
+        Classify Visible Data
+    </button>
+
+    <!-- Model Component - takes remaining space -->
+    <div class="flex-1 overflow-auto">
+        {#if $modelStore.error}
+            <div class="p-4 bg-red-100 text-red-800 rounded">
+                <p>Error: {$modelStore.error}</p>
+            </div>
+        {/if}
+        {#if $modelStore.model && $modelStore.metadata && $modelStore.features}
+            <!-- Conditionally render based on model type -->
+            {#if $modelStore.metadata.format === "graph-model"}
+                <GraphModel
+                    model={$modelStore.model as tf.GraphModel}
+                    metadata={$modelStore.metadata}
+                    features={$modelStore.features}
+                />
+            {:else if $modelStore.metadata.format === "layers-model"}
+                <!-- <LayersModel model={model as tf.LayersModel}/> -->
+                <div class="p-4 bg-yellow-100 text-yellow-800 rounded">
+                    <p>LayersModel component not yet implemented</p>
+                </div>
+            {:else}
+                <div class="p-4 bg-orange-100 text-orange-800 rounded">
+                    <p>Unknown model type: {$modelStore.metadata.format}</p>
+                </div>
+            {/if}
+        {/if}
+    </div>
+</div>
+

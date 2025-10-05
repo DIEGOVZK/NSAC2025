@@ -1,10 +1,12 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { model_options } from "$lib/api/model";
+    import { modelStore } from "$lib/stores/modelStore";
 
     let model_options_list: string[] = [];
     let selected_model: string = "default";
-    let model_features: string[] = [];
+    let predictions = new Map<number, number[]>();
+    let table_header: string[] = [];
 
     import {
         get_table_schema,
@@ -17,14 +19,59 @@
 
     let total_rows = 0;
     let tableHovered = false;
+    let visible_data: string[][] = [];
+    let current_range = { start: 0, end: 0 };
 
     onMount(async () => {
         model_options_list = await model_options();
         total_rows = await get_table_length();
+        table_header = await get_table_schema();
     });
 
     async function callback_selection(row: string[]) {
         alert(`Selected row: ${row.join(", ")}`);
+    }
+
+    async function handle_data_change(
+        e: CustomEvent<{
+            data: string[][];
+            range: { start: number; end: number };
+        }>,
+    ) {
+        visible_data = e.detail.data;
+        current_range = e.detail.range;
+    }
+
+    async function classify_visible_data() {
+        if (!visible_data || visible_data.length === 0 || !$modelStore.features)
+            return;
+
+        const { features: model_features } = $modelStore.features;
+
+        // Create a map of header names to their index for quick lookup
+        const header_index_map = new Map(table_header.map((h, i) => [h, i]));
+
+        // Get the indices of the features required by the model
+        const feature_indices = model_features
+            .map((f) => header_index_map.get(f))
+            .filter((i) => i !== undefined) as number[];
+
+        // Map the visible data to the format expected by the model
+        const prediction_data = visible_data.map((row) => {
+            return feature_indices.map((index) => Number(row[index]));
+        });
+
+        const results = await modelStore.predict(prediction_data);
+
+        results.forEach((result, index) => {
+            const absoluteIndex = current_range.start + index;
+            predictions.set(absoluteIndex, result); // Mutate the existing map
+        });
+
+        // Force reactivity by creating a new Map and reassigning
+        predictions = new Map(predictions);
+
+        console.log("Predictions updated:", predictions);
     }
 </script>
 
@@ -47,6 +94,8 @@
                 {get_table_schema}
                 {get_table_data}
                 {callback_selection}
+                {predictions}
+                on:data_changed={handle_data_change}
             />
         </div>
         <div
@@ -64,8 +113,11 @@
             class:blurred={tableHovered}
         >
             <div class="flex items-center justify-center h-full text-gray-500">
-                <span class="text-xl">Control Placeholder (25%)</span>
-                <Model {selected_model} {model_options_list} />
+                <Model
+                    {selected_model}
+                    {model_options_list}
+                    on:predict={classify_visible_data}
+                />
             </div>
         </div>
     </div>

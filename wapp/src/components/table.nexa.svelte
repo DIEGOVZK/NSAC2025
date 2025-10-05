@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, createEventDispatcher } from "svelte";
 
     // Props
     export let number_of_rows = 10;
@@ -10,6 +10,9 @@
     ) => Promise<string[][]>;
     export let get_table_schema: () => Promise<string[]>;
     export let callback_selection: (row: string[]) => void = () => {};
+    export let predictions: Map<number, number[]> = new Map();
+
+    const dispatch = createEventDispatcher();
 
     // State
     let table_header: string[] = [];
@@ -25,6 +28,25 @@
     $: canRollUp = current_range.start > total_range.start;
     $: canRollDown = current_range.end < total_range.end;
 
+    // Reactive derived state for rendering
+    $: display_rows = Array.from({ length: number_of_rows }).map((_, ri) => {
+        const absoluteIndex = current_range.start + ri;
+        const prediction = predictions.get(absoluteIndex);
+        let color = "";
+
+        if (prediction) {
+            if (prediction[0] > 0.8) color = "bg-green-300";
+            else if (prediction[0] < 0.2) color = "bg-red-300";
+            else color = "bg-gray-300";
+        }
+
+        return {
+            index: ri,
+            color: color,
+            data: table_visible[ri],
+        };
+    });
+
     // Methods
     async function roll(direction: "up" | "down") {
         const delta = direction === "down" ? number_of_rows : -number_of_rows;
@@ -36,14 +58,23 @@
         const nextEnd = Math.min(total_range.end, nextStart + number_of_rows);
         current_range = { start: nextStart, end: nextEnd };
 
+        await fetchData();
+    }
+
+    async function fetchData() {
         loading = true;
-
-        table_visible = await get_table_data(
-            current_range.start,
-            current_range.end,
-        );
-
-        loading = false;
+        try {
+            table_visible = await get_table_data(
+                current_range.start,
+                current_range.end,
+            );
+            dispatch("data_changed", {
+                data: table_visible,
+                range: current_range,
+            });
+        } finally {
+            loading = false;
+        }
     }
 
     function handle_search() {
@@ -58,6 +89,10 @@
                 get_table_schema(),
                 get_table_data(current_range.start, current_range.end),
             ]);
+            dispatch("data_changed", {
+                data: table_visible,
+                range: current_range,
+            });
         } finally {
             loading = false;
         }
@@ -83,12 +118,14 @@
         </form>
     </div>
 
-    <div class="border border-indigo-400 rounded-lg overflow-auto flex-1 min-h-0 shadow-lg">
+    <div
+        class="border border-indigo-400 rounded-lg overflow-auto flex-1 min-h-0 shadow-lg"
+    >
         <div class="relative">
             <table class="w-full border-collapse">
                 <thead class="bg-indigo-400 text-white sticky top-0 z-10">
                     <tr>
-                        {#each table_header as header}
+                        {#each table_header as header (header)}
                             <th
                                 class="px-6 py-3 text-left text-sm font-semibold uppercase tracking-wider border-b-2 border-indigo-400"
                             >
@@ -98,35 +135,37 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {#each Array(number_of_rows) as _, ri}
+                    {#each display_rows as row (row.index)}
                         <tr
-                            class="hover:bg-indigo-200 transition-colors duration-150 {table_visible[ri] ? 'cursor-pointer' : ''}"
+                            class="hover:bg-indigo-200 transition-colors duration-150 {row.data ? 'cursor-pointer' : ''} {row.color}"
                             on:click={() => {
-                                if (table_visible[ri]) {
-                                    callback_selection(table_visible[ri]);
+                                if (row.data) {
+                                    callback_selection(row.data);
                                 }
                             }}
                         >
-                            {#each Array(table_header.length) as _, ci}
+                            {#each { length: table_header.length } as _, ci (ci)}
                                 <td
                                     class="px-6 py-4 whitespace-nowrap text-sm text-gray-700"
                                 >
-                                    {table_visible[ri]?.[ci] ?? ""}
+                                    {row.data?.[ci] ?? ""}
                                 </td>
                             {/each}
                         </tr>
                     {/each}
                 </tbody>
             </table>
-{#if loading}
-    <div
-        class="absolute inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-20"
-    >
-        <div class="text-indigo-600 text-lg font-semibold drop-shadow-lg">
-            Loading…
-        </div>
-    </div>
-{/if}
+            {#if loading}
+                <div
+                    class="absolute inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-20"
+                >
+                    <div
+                        class="text-indigo-600 text-lg font-semibold drop-shadow-lg"
+                    >
+                        Loading…
+                    </div>
+                </div>
+            {/if}
         </div>
     </div>
 
@@ -145,7 +184,7 @@
         <button
             on:click={() => roll("down")}
             disabled={!canRollDown || loading}
-            class="px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-150 font-medium"
+            class="px-4 py-2 bg-indigo-400 text-white rounded-md hover:bg-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-150 font-medium"
         >
             Next →
         </button>
