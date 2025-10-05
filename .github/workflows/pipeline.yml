@@ -2,8 +2,8 @@ name: Docker Build and SSH Deploy to Azure VM 🚀
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - '*'
 
 jobs:
   build_and_deploy:
@@ -33,9 +33,9 @@ jobs:
       - name: 🔑 Set up SSH and Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.AZURE_VM_HOST }}           # Your VM IP (e.g., 68.154.72.175)
-          username: ${{ secrets.AZURE_VM_USERNAME }}   # Your VM user (e.g., echoteam)
-          key: ${{ secrets.SSH_PRIVATE_KEY }}          # The private key (content of key.pem)
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             DEPLOY_PATH="exoplanet-project"
             
@@ -58,8 +58,8 @@ jobs:
           host: ${{ secrets.AZURE_VM_HOST }}
           username: ${{ secrets.AZURE_VM_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "project.tar.gz,wapp.tgz,caddy.tgz" # Transfer all archives
-          target: "/tmp/deploy_staging" # A temporary location on the VM
+          source: "project.tar.gz,wapp.tgz,caddy.tgz"
+          target: "/tmp/deploy_staging"
 
       # --- Final Remote Execution Step ---
       - name: 🔄 Load Images and Run Docker Compose on VM
