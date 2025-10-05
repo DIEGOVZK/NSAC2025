@@ -27,8 +27,8 @@ jobs:
       - name: 💾 Save Docker Images to Tar Archives
         # Pipe docker save output to files in the runner environment
         run: |
-          docker save echoteam/exoplanet-wapp:latest -o wapp.tar
-          docker save echoteam/exoplanet-caddy:latest -o caddy.tar
+          docker save echoteam/exoplanet-wapp:latest | gzip > wapp.tgz
+          docker save echoteam/exoplanet-caddy:latest | gzip > caddy.tgz
 
       - name: 🔑 Set up SSH and Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.3
@@ -58,7 +58,7 @@ jobs:
           host: ${{ secrets.AZURE_VM_HOST }}
           username: ${{ secrets.AZURE_VM_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "project.tar.gz,wapp.tar,caddy.tar" # Transfer all archives
+          source: "project.tar.gz,wapp.tgz,caddy.tgz" # Transfer all archives
           target: "/tmp/deploy_staging" # A temporary location on the VM
 
       # --- Final Remote Execution Step ---
@@ -80,8 +80,8 @@ jobs:
             tar -xzf project.tar.gz -C /home/${{ secrets.AZURE_VM_USERNAME }}/${DEPLOY_PATH}
             
             # Load the Docker Images from the transferred archives
-            gunzip < wapp.tar | docker load 
-            gunzip < caddy.tar | docker load 
+            gunzip < ${STAGING_DIR}/wapp.tgz | docker load 
+            gunzip < ${STAGING_DIR}/caddy.tgz | docker load
             
             # Clean up the staging area
             rm -rf ${STAGING_DIR}
