@@ -22,7 +22,7 @@ jobs:
 
       # --- Deployment Preparation & Transfer Steps ---
       - name: 📦 Archive Project Files for Transfer
-        run: tar -czh . > project.tar.gz
+        run: tar --exclude=project.tar.gz -czh . > project.tar.gz
 
       - name: 💾 Save Docker Images to Tar Archives
         # Pipe docker save output to files in the runner environment
