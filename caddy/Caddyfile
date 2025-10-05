@@ -1,0 +1,16 @@
+exoplanetclassificationhub.study, www.exoplanetclassificationhub.study {
+
+    # Reverse proxy traffic to your Docker service
+    reverse_proxy wapp:3000
+
+    # Modern, structured logging configuration
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10mb
+            roll_keep 10
+            roll_keep_for 720h  # 30 days
+        }
+        # Use the default JSON (zap) format for structured logging
+        # format json
+    }
+}

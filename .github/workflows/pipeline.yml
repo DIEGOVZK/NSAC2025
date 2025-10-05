@@ -1,0 +1,94 @@
+name: Docker Build and SSH Deploy to Azure VM 🚀
+
+on:
+  push:
+    branches:
+      - main # Trigger the workflow on push to the main branch
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      # --- Docker Build Steps ---
+      - name: 🏗️ Build 'exoplanet-wapp' Docker Image
+        run: docker build -t echoteam/exoplanet-wapp:latest ./wapp
+
+      - name: 🏗️ Build 'exoplanet-caddy' Docker Image
+        run: docker build -t echoteam/exoplanet-caddy:latest ./caddy
+
+      # --- Deployment Preparation & Transfer Steps ---
+      - name: 📦 Archive Project Files for Transfer
+        run: tar -czh . > project.tar.gz
+
+      - name: 💾 Save Docker Images to Tar Archives
+        # Pipe docker save output to files in the runner environment
+        run: |
+          docker save echoteam/exoplanet-wapp:latest -o wapp.tar
+          docker save echoteam/exoplanet-caddy:latest -o caddy.tar
+
+      - name: 🔑 Set up SSH and Deploy to Azure VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}           # Your VM IP (e.g., 68.154.72.175)
+          username: ${{ secrets.AZURE_VM_USERNAME }}   # Your VM user (e.g., echoteam)
+          key: ${{ secrets.SSH_PRIVATE_KEY }}          # The private key (content of key.pem)
+          script: |
+            DEPLOY_PATH="exoplanet-project"
+            
+            # Create a temporary directory on the remote host for receiving files
+            mkdir -p /tmp/deploy_staging
+            
+            # Receive and extract project files (excluding the large image archives)
+            # The 'tar -xz -C ${DEPLOY_PATH}' logic is better handled by transferring the whole tar and untarring it.
+            # However, for simplicity and security, we'll use the 'appleboy/scp-action' for large files like images.
+            # But since the previous step archives the WHOLE project, let's keep it simple.
+            # **To mimic your exact tar command for project files:**
+            mkdir -p ${DEPLOY_PATH} # Ensure main directory exists
+            
+            # Note: The tar -czh . | ssh ... command you used is streaming. 
+            # With appleboy/ssh-action, we need to upload the files first.
+
+      - name: ⬆️ Transfer Project Archives and Docker Images to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "project.tar.gz,wapp.tar,caddy.tar" # Transfer all archives
+          target: "/tmp/deploy_staging" # A temporary location on the VM
+
+      # --- Final Remote Execution Step ---
+      - name: 🔄 Load Images and Run Docker Compose on VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            DEPLOY_PATH="exoplanet-project"
+            STAGING_DIR="/tmp/deploy_staging"
+            
+            # Navigate to staging
+            cd ${STAGING_DIR}
+            
+            # Unpack project files (your docker-compose.yml, etc.)
+            mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/${DEPLOY_PATH}
+            tar -xzf project.tar.gz -C /home/${{ secrets.AZURE_VM_USERNAME }}/${DEPLOY_PATH}
+            
+            # Load the Docker Images from the transferred archives
+            gunzip < wapp.tar | docker load 
+            gunzip < caddy.tar | docker load 
+            
+            # Clean up the staging area
+            rm -rf ${STAGING_DIR}
+            
+            # Navigate to project directory and deploy
+            cd /home/${{ secrets.AZURE_VM_USERNAME }}/${DEPLOY_PATH}
+            sudo docker compose -f docker-compose.yml down # Stop running containers first (Optional, but good for updates)
+            sudo docker compose -f docker-compose.yml up -d --force-recreate
+            
+            echo "Deployment complete! Application is running on the VM."

@@ -1,0 +1,16 @@
+{
+  "model_name": "exoplanet_student_tfjs",
+  "generated_at": "2025-10-04T19:55:45.183485Z",
+  "features": [
+    "period",
+    "transit_epoch_bjd",
+    "transit_duration_hrs",
+    "transit_depth_ppm",
+    "planet_radius_earth",
+    "star_radius_sol",
+    "star_teff",
+    "star_logg"
+  ],
+  "threshold": 0.5,
+  "note": "Normalization embutida no grafo via tf.keras.layers.Normalization()."
+}

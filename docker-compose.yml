@@ -1,0 +1,38 @@
+services:
+  # SvelteKit Application Service
+  wapp:
+    image: echoteam/exoplanet-wapp:latest
+    restart: unless-stopped
+    volumes:
+      - ./models:/app/build/client/api/tfjs
+      - ./fits:/app/build/client/api/fits
+      - ./database:/app/database
+    env_file:
+      - ./wapp/.env.docker
+    networks:
+      - caddy_net
+
+  # Caddy Reverse Proxy Service
+  caddy:
+    image: echoteam/exoplanet-caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - caddy_net
+
+# Docker Networks
+networks:
+  caddy_net:
+    driver: bridge
+
+# Docker Volumes
+volumes:
+  caddy_data:
+  caddy_config:
