@@ -16,11 +16,51 @@
 
     import NexaTable from "$components/table.nexa.svelte";
     import Model from "$components/model.svelte";
+    import LineGraph from "$components/LineGraph.svelte";
 
     let total_rows = 0;
     let tableHovered = false;
     let visible_data: string[][] = [];
     let current_range = { start: 0, end: 0 };
+
+    // Sample data for LineGraph
+    const graphData: { time: Date; value: number; low: number; high: number }[] =
+        [];
+    const now = new Date();
+    for (let i = 0; i < 100; i++) {
+        const time = new Date(now.getTime() + i * 3600 * 1000 * 6); // 6-hourly data
+        const value = Math.sin(i * 0.2) * 40 + 50;
+        graphData.push({
+            time: time,
+            value: value,
+            low: value - (10 + Math.random() * 10),
+            high: value + (10 + Math.random() * 10),
+        });
+    }
+
+    const graphThreshold = 65;
+
+    const floatingLabels = [
+        {
+            xValue: graphData[8].time,
+            yValue: graphData[8].value,
+            text: "First Peak",
+        },
+        {
+            xValue: graphData[24].time,
+            yValue: graphData[24].value,
+            text: "Second Peak",
+        },
+    ];
+
+    function handleZoom(event: CustomEvent<[Date, Date]>) {
+        console.log("Zoom region selected:", event.detail);
+        // Here you could filter data or perform other actions based on the new domain
+    }
+
+    function handleZoomReset() {
+        console.log("Zoom has been reset");
+    }
 
     onMount(async () => {
         model_options_list = await model_options();
@@ -104,8 +144,18 @@
             class:col-span-1={tableHovered}
             class:blurred={tableHovered}
         >
-            <div class="flex items-center justify-center h-full text-gray-500">
-                <span class="text-xl">Graph Placeholder (50%)</span>
+            <div
+                class="grid-section-graph bg-gray-200 rounded-lg overflow-hidden"
+                class:col-span-2={!tableHovered}
+                class:col-span-1={tableHovered}
+            >
+                <LineGraph
+                    data={graphData}
+                    threshold={graphThreshold}
+                    floatingLabels={floatingLabels}
+                    on:zoomRegionSelected={handleZoom}
+                    on:zoomReset={handleZoomReset}
+                />
             </div>
         </div>
         <div
@@ -131,5 +181,10 @@
     .grid-section.blurred {
         filter: blur(2px);
         opacity: 0.5;
+    }
+    .grid-section-graph {
+        position: relative;
+        width: 100%;
+        height: 90%;
     }
 </style>

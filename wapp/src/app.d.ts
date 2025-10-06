@@ -10,4 +10,11 @@ declare global {
 	}
 }
 
+declare module 'jsfitio' {
+    export class FITSParser {
+        constructor(buffer: Buffer | ArrayBuffer);
+        parse(): any;
+    }
+}
+
 export {};

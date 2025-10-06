@@ -46,6 +46,9 @@
 	},
 	"dependencies": {
 		"@tensorflow/tfjs-node": "^4.22.0",
-		"better-sqlite3": "^12.4.1"
+		"@types/d3": "^7.4.3",
+		"better-sqlite3": "^12.4.1",
+		"d3": "^7.9.0",
+		"jsfitsio": "^1.0.2"
 	}
 }
