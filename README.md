@@ -38,6 +38,7 @@ The ML pipeline, hosted in **Google Colab**, is where the magic begins:
 - **Data Sourcing & Transformation**: We pull data from official sources like **NExA/MAST** and transform it for analysis.
 - **Parallel Classification**: The data is processed through two parallel streams, **Classic** and **AI/ML Classification**, before the results are merged.
 - **TensorFlow.js Conversion**: The final, trained model is converted into **TensorFlow.js** format. This crucial step extracts the deployable parameters that feed directly into our CI/CD pipeline.
+- Code: Add repo link here→https://github.com/apsgois/NSAC2025-ML
 
 ### CI/CD and Deployment
 Once the model is ready, our automated deployment process, managed by **GitHub Actions**, takes over. Triggered by a new tag, the pipeline executes the following steps in sequence:
